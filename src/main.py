@@ -6,9 +6,7 @@ from datetime import datetime
 
 import schedule
 
-LOGS_PATH = 'logs'
-LOG_FILENAME = 'weather_log.csv'
-FIELDNAMES = ['time']
+import config
 
 
 def init():
@@ -25,20 +23,20 @@ def setup_periodic_schedule():
 
 
 def setup_csv():
-    with open(f'{LOGS_PATH}/{LOG_FILENAME}', 'w', encoding='UTF8', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+    with open(f'{config.LOGS_PATH}/{config.LOG_FILENAME}', 'w', encoding='UTF8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=config.FIELDNAMES)
         writer.writeheader()
 
 
 def append_data(row):
-    with open(f'{LOGS_PATH}/{LOG_FILENAME}', 'a', encoding='UTF8', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+    with open(f'{config.LOGS_PATH}/{config.LOG_FILENAME}', 'a', encoding='UTF8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=config.FIELDNAMES)
         writer.writerow(row)
 
 
 def backup_csv():
-    shutil.copy(f'{LOGS_PATH}/{LOG_FILENAME}',
-                f'{LOGS_PATH}/{datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}_{LOG_FILENAME}')
+    shutil.copy(f'{config.LOGS_PATH}/{config.LOG_FILENAME}',
+                f'{config.LOGS_PATH}/{datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}_{config.LOG_FILENAME}')
 
 
 def run():
@@ -49,7 +47,7 @@ def run():
 
 if __name__ == '__main__':
     init()
-    schedule.every().day.at('19:22:10').do(setup_periodic_schedule)
+    schedule.every().day.at('19:25:10').do(setup_periodic_schedule)
     while True:
         schedule.run_pending()
         time.sleep(1)
