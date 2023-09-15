@@ -5,8 +5,13 @@ import time
 from datetime import datetime
 
 import schedule
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
 
 import config
+
+gauth = GoogleAuth()
+drive = GoogleDrive()
 
 
 def init():
@@ -35,8 +40,13 @@ def append_data(row):
 
 
 def backup_csv():
+    filename_backup = f'{datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}_{config.LOG_FILENAME}'
     shutil.copy(f'{config.LOGS_PATH}/{config.LOG_FILENAME}',
-                f'{config.LOGS_PATH}/{datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}_{config.LOG_FILENAME}')
+                f'{config.LOGS_PATH}/{filename_backup}')
+    google_drive_file = drive.CreateFile(
+        {'parents': [{'id': config.FOLDER_ID}], 'title': f'{filename_backup}'})
+    google_drive_file.SetContentFile(f'{config.LOGS_PATH}/{filename_backup}')
+    google_drive_file.Upload()
 
 
 def run():
@@ -47,7 +57,7 @@ def run():
 
 if __name__ == '__main__':
     init()
-    schedule.every().day.at('19:25:10').do(setup_periodic_schedule)
+    schedule.every().day.at(config.STARTTIME).do(setup_periodic_schedule)
     while True:
         schedule.run_pending()
         time.sleep(1)
