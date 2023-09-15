@@ -1,8 +1,10 @@
 import csv
 import logging
 import shutil
+import threading
 import time
 from datetime import datetime
+from typing import Callable
 
 import schedule
 from pydrive.auth import GoogleAuth
@@ -21,9 +23,15 @@ def init():
     setup_csv()
 
 
+def run_threaded(func: Callable):
+    # after https://schedule.readthedocs.io/en/stable/parallel-execution.html
+    thread = threading.Thread(target=func)
+    thread.start()
+
+
 def setup_periodic_schedule():
-    schedule.every(5).seconds.do(run)
-    schedule.every(25).seconds.do(backup_csv)
+    schedule.every(config.INTERVAL_MEASUREMENTS).seconds.do(run_threaded, run)
+    schedule.every(config.INTERVAL_BACKUP).seconds.do(run_threaded, backup_csv)
     return schedule.CancelJob
 
 
