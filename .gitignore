@@ -1,3 +1,5 @@
 test/
 .python-version
-logs/
+logs/*.csv
+*/__pycache__
+auth/*.json
