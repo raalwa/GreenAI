@@ -3,7 +3,7 @@ import logging
 import shutil
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 import requests
@@ -21,6 +21,7 @@ session = requests.Session()
 
 
 def init():
+    print("Start init")
     logging.basicConfig()
     schedule_logger = logging.getLogger('schedule')
     schedule_logger.setLevel(level=logging.DEBUG)
@@ -35,12 +36,13 @@ def run_threaded(func: Callable):
 
 
 def setup_periodic_schedule():
-    schedule.every(config.INTERVAL_MEASUREMENTS).seconds.do(run_threaded, run)
-    schedule.every(config.INTERVAL_BACKUP).seconds.do(run_threaded, backup_csv)
+    schedule.every(config.INTERVAL_MEASUREMENTS).minutes.do(run_threaded, run)
+    schedule.every(config.INTERVAL_BACKUP).hours.do(run_threaded, backup_csv)
     return schedule.CancelJob
 
 
 def get_API_token():
+    print("Generating new token")
     global token
     try:
         with session.get(config.TOKEN_URL, auth=(config.USER, config.PASS)) as r:
@@ -73,24 +75,25 @@ def backup_csv():
 
 
 def run():
+    # for thread in threading.enumerate():
+    #     print(thread.name)
     data = {}
     weather = get_weather()
     data['validdate'] = weather[0]['coordinates'][0]['dates'][0]['date']
     for value in weather:
         data[value['parameter']] = value['coordinates'][0]['dates'][0]['value']
     power = get_power()
-    print('Data:', data)
     append_data(data)
 
 
 def get_weather():
     global token
+    validdate = f'{datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}'
+    # print("Calling API with time:", validdate)
     try:
-        with session.get(f'{config.API_URL}/{config.VALIDDATE}/{config.PARAMETERS}/{config.LOCATION}/{config.FORMAT}?access_token={token}') as r:
+        with session.get(f'{config.API_URL}/{validdate}/{config.PARAMETERS}/{config.LOCATION}/{config.FORMAT}?access_token={token}') as r:
             r.raise_for_status()
             data = r.json()['data']
-
-            print(data)
             return data
     except Exception as exc:
         print('Exception:', exc)
@@ -102,7 +105,8 @@ def get_power():
 
 if __name__ == '__main__':
     init()
-    schedule.every().day.at(config.STARTTIME).do(setup_periodic_schedule)
+    time_start = datetime.now() + timedelta(seconds=10)
+    schedule.every().day.at(time_start.strftime("%H:%M:%S")).do(setup_periodic_schedule)
     schedule.every(110).minutes.do(run_threaded, get_API_token)
     while True:
         schedule.run_pending()
