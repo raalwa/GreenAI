@@ -6,6 +6,8 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 
+import adafruit_ina260
+import board
 import requests
 import schedule
 from pydrive.auth import GoogleAuth
@@ -18,6 +20,9 @@ drive = GoogleDrive()
 
 token = ''
 session = requests.Session()
+
+i2c = board.I2C()
+ina260 = adafruit_ina260.INA260(i2c)
 
 
 def init():
@@ -36,8 +41,9 @@ def run_threaded(func: Callable):
 
 
 def setup_periodic_schedule():
-    schedule.every(config.INTERVAL_MEASUREMENTS).minutes.do(run_threaded, run)
-    schedule.every(config.INTERVAL_BACKUP).hours.do(run_threaded, backup_csv)
+    schedule.every(config.INTERVAL_MEASUREMENTS_MIN).minutes.do(
+        run_threaded, run)
+    schedule.every(config.INTERVAL_BACKUP_H).hours.do(run_threaded, backup_csv)
     return schedule.CancelJob
 
 
@@ -83,6 +89,7 @@ def run():
     for value in weather:
         data[value['parameter']] = value['coordinates'][0]['dates'][0]['value']
     power = get_power()
+    data.update(power)
     append_data(data)
 
 
@@ -100,7 +107,11 @@ def get_weather():
 
 
 def get_power():
-    return 0
+    data = {}
+    data['current'] = ina260.current
+    data['voltage'] = ina260.voltage
+    data['power'] = ina260.power
+    return data
 
 
 if __name__ == '__main__':
