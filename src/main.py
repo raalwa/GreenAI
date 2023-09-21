@@ -3,7 +3,7 @@ import logging
 import shutil
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Callable
 
 import adafruit_ina260
@@ -31,7 +31,6 @@ def init():
     schedule_logger = logging.getLogger('schedule')
     schedule_logger.setLevel(level=logging.DEBUG)
     setup_csv()
-    get_API_token()
 
 
 def run_threaded(func: Callable):
@@ -45,17 +44,6 @@ def setup_periodic_schedule():
         run_threaded, run)
     schedule.every(config.INTERVAL_BACKUP_H).hours.do(run_threaded, backup_csv)
     return schedule.CancelJob
-
-
-def get_API_token():
-    print("Generating new token")
-    global token
-    try:
-        with session.get(config.TOKEN_URL, auth=(config.USER, config.PASS)) as r:
-            r.raise_for_status()
-            token = r.json()['access_token']
-    except Exception as exc:
-        print('Exception:', exc)
 
 
 def setup_csv():
@@ -81,26 +69,22 @@ def backup_csv():
 
 
 def run():
-    # for thread in threading.enumerate():
-    #     print(thread.name)
     data = {}
     weather = get_weather()
-    data['validdate'] = weather[0]['coordinates'][0]['dates'][0]['date']
-    for value in weather:
-        data[value['parameter']] = value['coordinates'][0]['dates'][0]['value']
+    for key in weather['current']:
+        data[key] = weather['current'][key]
+    data.pop('weather')
     power = get_power()
     data.update(power)
     append_data(data)
+    return schedule.CancelJob
 
 
 def get_weather():
-    global token
-    validdate = f'{datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}'
-    # print("Calling API with time:", validdate)
     try:
-        with session.get(f'{config.API_URL}/{validdate}/{config.PARAMETERS}/{config.LOCATION}/{config.FORMAT}?access_token={token}') as r:
+        with session.get(f'{config.API_URL}lat={config.LATITUDE}&lon={config.LONGITUDE}&exclude={config.EXCLUDE}&appid={config.API_KEY}') as r:
             r.raise_for_status()
-            data = r.json()['data']
+            data = r.json()
             return data
     except Exception as exc:
         print('Exception:', exc)
@@ -108,9 +92,12 @@ def get_weather():
 
 def get_power():
     data = {}
-    data['current'] = ina260.current
-    data['voltage'] = ina260.voltage
-    data['power'] = ina260.power
+    current = ina260.current
+    voltage = ina260.voltage
+    power = current*voltage
+    data['current'] = current
+    data['voltage'] = voltage
+    data['power'] = power
     return data
 
 
@@ -118,7 +105,6 @@ if __name__ == '__main__':
     init()
     time_start = datetime.now() + timedelta(seconds=10)
     schedule.every().day.at(time_start.strftime("%H:%M:%S")).do(setup_periodic_schedule)
-    schedule.every(110).minutes.do(run_threaded, get_API_token)
     while True:
         schedule.run_pending()
         time.sleep(1)
