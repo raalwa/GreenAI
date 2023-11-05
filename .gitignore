@@ -1,2 +1,7 @@
-test/
 .python-version
+logs/*.csv
+*/__pycache__
+auth/client_secrets.json
+auth/credentials.json
+src/config.py
+settings.yaml
